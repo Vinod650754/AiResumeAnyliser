@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { ResumePreview } from '../components/builder/ResumePreview.jsx';
+import { PremiumResumePreview } from '../components/builder/PremiumResumePreview.jsx';
 import { api } from '../lib/api.js';
 
 export const SharedResumePage = () => {
@@ -18,9 +18,8 @@ export const SharedResumePage = () => {
   return (
     <div className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-4xl">
-        <ResumePreview resume={resume} />
+        <PremiumResumePreview resume={resume} />
       </div>
     </div>
   );
 };
-

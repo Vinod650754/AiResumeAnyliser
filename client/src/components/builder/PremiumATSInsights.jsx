@@ -14,6 +14,7 @@ export const PremiumATSInsights = ({ analysis }) => {
           <p className="text-sm uppercase tracking-[0.26em] text-white/42">ATS Score</p>
           <p className="font-display text-5xl italic text-white">{analysis.score}</p>
           <p className="mt-2 text-sm text-cyan-200/85">{analysis.keywordCoverage}% keyword coverage</p>
+          {analysis.benchmarkRole ? <p className="mt-1 text-xs uppercase tracking-[0.22em] text-white/42">Benchmark: {analysis.benchmarkRole}</p> : null}
         </div>
         <div className="relative grid h-24 w-24 place-items-center rounded-full border border-cyan-300/20 bg-white/[0.03]">
           <div
@@ -56,4 +57,3 @@ export const PremiumATSInsights = ({ analysis }) => {
     </div>
   );
 };
-

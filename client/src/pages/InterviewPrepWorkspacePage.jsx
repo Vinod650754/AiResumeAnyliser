@@ -11,28 +11,36 @@ import { InterviewPrepPanel } from '../components/builder/InterviewPrepPanel.jsx
 export const InterviewPrepWorkspacePage = () => {
   const { token } = useAuth();
   const { resumes, selectedResume, selectedResumeId, setSelectedResumeId, loading } = useResumeWorkspace(token);
-  const [targetContext, setTargetContext] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
   const [interview, setInterview] = useState(null);
+  const [evaluation, setEvaluation] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const storageKey = useMemo(() => `interview_answers_${selectedResumeId}`, [selectedResumeId]);
 
   useEffect(() => {
     if (!selectedResume) {
       setInterview(null);
+      setEvaluation(null);
       return;
     }
+
+    setJobTitle(selectedResume.personal?.role || selectedResume.title || '');
     setInterview(selectedResume.interviewPrep || null);
+    setEvaluation(null);
   }, [selectedResume]);
 
   const generateInterview = async () => {
     if (!selectedResume) return;
     setBusy(true);
+    setEvaluation(null);
     try {
       const response = await api.post(
         '/interview/generate',
         {
           resume: selectedResume,
-          jobDescription: targetContext || selectedResume.jobDescription
+          jobTitle,
+          jobDescription: selectedResume.jobDescription
         },
         withAuth(token)
       );
@@ -40,6 +48,25 @@ export const InterviewPrepWorkspacePage = () => {
       setInterview({ ...response.data.interview, answers: savedAnswers });
     } finally {
       setBusy(false);
+    }
+  };
+
+  const submitAnswers = async (questions, answers) => {
+    setSubmitting(true);
+    try {
+      const orderedAnswers = questions.map((_, index) => answers[index] || '');
+      const response = await api.post(
+        '/interview/evaluate',
+        {
+          roleFocus: interview?.roleFocus || jobTitle,
+          questions,
+          answers: orderedAnswers
+        },
+        withAuth(token)
+      );
+      setEvaluation(response.data.evaluation);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -57,12 +84,12 @@ export const InterviewPrepWorkspacePage = () => {
         resumes={resumes}
         selectedResumeId={selectedResumeId}
         onChange={setSelectedResumeId}
-        helperText="Generate technical and experience-based interview questions for your selected resume."
+        helperText="Generate at least 10 interview questions for the selected role, answer them, and get AI scoring afterward."
       />
 
       <SectionCard
         title="Interview Prep"
-        description="Generate technical, behavioral, and project-based questions, then write your answers directly in the workspace."
+        description="Generate a balanced interview set with basic, technical, and scenario questions for the job title you want."
         actions={
           <button type="button" onClick={generateInterview} className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black">
             <Mic size={16} />
@@ -71,16 +98,20 @@ export const InterviewPrepWorkspacePage = () => {
         }
       >
         <FormField
-          label="Target interview context"
-          as="textarea"
-          rows="5"
-          value={targetContext}
-          onChange={(event) => setTargetContext(event.target.value)}
-          placeholder="Paste a role summary, expected responsibilities, or technical stack for more focused questions."
+          label="Target job title"
+          value={jobTitle}
+          onChange={(event) => setJobTitle(event.target.value)}
+          placeholder="Senior MERN Developer, Frontend Engineer, Backend Engineer"
         />
       </SectionCard>
 
-      <InterviewPrepPanel interview={interview} storageKey={storageKey} />
+      <InterviewPrepPanel
+        interview={interview}
+        storageKey={storageKey}
+        onSubmit={submitAnswers}
+        submitting={submitting}
+        evaluation={evaluation}
+      />
     </div>
   );
 };

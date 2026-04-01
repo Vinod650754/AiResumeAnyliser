@@ -1,63 +1,72 @@
-import { useState } from 'react';
-import { useEffect } from 'react';
-import { Wand2, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { RefreshCcw, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useResumeWorkspace } from '../hooks/useResumeWorkspace.js';
 import { api, withAuth } from '../lib/api.js';
 import { SectionCard } from '../components/ui/SectionCard.jsx';
 import { ResumeSelectorBar } from '../components/workspace/ResumeSelectorBar.jsx';
-import { FormField } from '../components/ui/FormField.jsx';
-import { AIComparePanel } from '../components/builder/AIComparePanel.jsx';
 import { PremiumATSInsights } from '../components/builder/PremiumATSInsights.jsx';
+
+const ImprovementCard = ({ title, children, accent = 'text-white/42' }) => (
+  <div className="liquid-glass rounded-[28px] p-5">
+    <p className={`text-xs uppercase tracking-[0.28em] ${accent}`}>{title}</p>
+    <div className="mt-4 text-sm leading-7 text-white/78">{children}</div>
+  </div>
+);
 
 export const AIImproverPage = () => {
   const { token } = useAuth();
   const { resumes, selectedResume, selectedResumeId, setSelectedResumeId, loading } = useResumeWorkspace(token);
-  const [targetNotes, setTargetNotes] = useState('');
   const [improved, setImproved] = useState(null);
-  const [analysis, setAnalysis] = useState(selectedResume?.atsAnalysis || null);
-  const [busy, setBusy] = useState('');
+  const [analysis, setAnalysis] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const originalHighlights = useMemo(
+    () => (selectedResume?.experience || []).flatMap((item) => item.highlights || []).slice(0, 6),
+    [selectedResume]
+  );
+
+  const runImprove = async () => {
+    if (!selectedResume) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const [improveResponse, atsResponse] = await Promise.all([
+        api.post(
+          '/ai/improve',
+          {
+            resume: selectedResume,
+            jobDescription: selectedResume.jobDescription
+          },
+          withAuth(token)
+        ),
+        api.post(
+          '/ats/analyze',
+          {
+            resume: selectedResume,
+            jobDescription: selectedResume.jobDescription
+          },
+          withAuth(token)
+        )
+      ]);
+
+      setImproved(improveResponse.data.improved);
+      setAnalysis(atsResponse.data.analysis);
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Unable to generate AI improvements right now.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     setImproved(null);
     setAnalysis(selectedResume?.atsAnalysis || null);
-  }, [selectedResumeId, selectedResume]);
-
-  const runImprove = async () => {
-    if (!selectedResume) return;
-    setBusy('improve');
-    try {
-      const response = await api.post(
-        '/ai/improve',
-        {
-          resume: selectedResume,
-          jobDescription: targetNotes
-        },
-        withAuth(token)
-      );
-      setImproved(response.data.improved);
-    } finally {
-      setBusy('');
+    if (selectedResume && token) {
+      runImprove();
     }
-  };
-
-  const runATS = async () => {
-    if (!selectedResume) return;
-    setBusy('ats');
-    try {
-      const response = await api.post(
-        '/ats/analyze',
-        {
-          resume: selectedResume,
-          jobDescription: targetNotes || selectedResume.jobDescription
-        },
-        withAuth(token)
-      );
-      setAnalysis(response.data.analysis);
-    } finally {
-      setBusy('');
-    }
-  };
+  }, [selectedResumeId]);
 
   if (loading) {
     return <div className="liquid-glass rounded-[30px] p-6 text-white/55">Loading resumes...</div>;
@@ -73,47 +82,98 @@ export const AIImproverPage = () => {
         resumes={resumes}
         selectedResumeId={selectedResumeId}
         onChange={setSelectedResumeId}
-        helperText="Choose which resume you want to improve and score."
+        helperText="Choose a resume and the AI improver will automatically rewrite and polish it side by side."
       />
 
-      <SectionCard title="AI Improver" description="Refine the resume with AI and analyze its ATS strength against a specific target.">
-        <div className="grid gap-4 lg:grid-cols-[1fr,auto]">
-          <FormField
-            label="Target role or notes"
-            as="textarea"
-            rows="5"
-            value={targetNotes}
-            onChange={(event) => setTargetNotes(event.target.value)}
-            placeholder="Paste a target role, responsibilities, or a short job summary."
-          />
-          <div className="flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={runImprove}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm text-white"
-            >
-              <Wand2 size={16} />
-              {busy === 'improve' ? 'Improving...' : 'Improve with AI'}
-            </button>
-            <button
-              type="button"
-              onClick={runATS}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black"
-            >
-              <Sparkles size={16} />
-              {busy === 'ats' ? 'Analyzing...' : 'Analyze ATS'}
-            </button>
+      <SectionCard
+        title="AI Resume Improver"
+        description="The left side shows your current resume language. The right side shows a stronger AI-polished version with better grammar, summary quality, and recruiter framing."
+        actions={
+          <button
+            type="button"
+            onClick={runImprove}
+            className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black"
+          >
+            <RefreshCcw size={16} className={busy ? 'animate-spin' : ''} />
+            {busy ? 'Improving...' : 'Refresh Improvement'}
+          </button>
+        }
+      >
+        <div className="grid gap-6 xl:grid-cols-2">
+          <div className="space-y-4">
+            <ImprovementCard title="Current Summary">
+              <p>{selectedResume.summary}</p>
+            </ImprovementCard>
+            <ImprovementCard title="Current Skills">
+              <div className="flex flex-wrap gap-2">
+                {selectedResume.skills.map((skill) => (
+                  <span key={skill} className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/78">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </ImprovementCard>
+            <ImprovementCard title="Current Experience Highlights">
+              <ul className="space-y-2">
+                {originalHighlights.map((highlight) => (
+                  <li key={highlight}>• {highlight}</li>
+                ))}
+              </ul>
+            </ImprovementCard>
+          </div>
+
+          <div className="space-y-4">
+            <ImprovementCard title="AI Improved Summary" accent="text-cyan-200/80">
+              <p>{improved?.improvedSummary || 'Generating a stronger summary...'}</p>
+            </ImprovementCard>
+            <ImprovementCard title="AI Improved Skills" accent="text-cyan-200/80">
+              <div className="flex flex-wrap gap-2">
+                {(improved?.improvedSkills || []).map((skill) => (
+                  <span key={skill} className="rounded-full bg-cyan-300/10 px-3 py-1 text-xs text-cyan-100">
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </ImprovementCard>
+            <ImprovementCard title="AI Improved Highlights" accent="text-cyan-200/80">
+              <ul className="space-y-2">
+                {(improved?.improvedHighlights || []).map((highlight) => (
+                  <li key={highlight}>• {highlight}</li>
+                ))}
+              </ul>
+            </ImprovementCard>
+            <ImprovementCard title="Grammar And Recruiter Notes" accent="text-cyan-200/80">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-white/40">Grammar fixes</p>
+                  <ul className="mt-2 space-y-2">
+                    {(improved?.grammarFixes || []).map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-white/40">Recruiter notes</p>
+                  <ul className="mt-2 space-y-2">
+                    {(improved?.recruiterNotes || []).map((item) => (
+                      <li key={item}>• {item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </ImprovementCard>
           </div>
         </div>
+        {message ? <p className="mt-4 text-sm text-rose-200">{message}</p> : null}
       </SectionCard>
 
-      {improved?.improvedSummary ? (
-        <SectionCard title="Before And After" description="Compare the original summary with the AI-improved version.">
-          <AIComparePanel original={selectedResume.summary} improved={improved.improvedSummary} />
-        </SectionCard>
-      ) : null}
-
-      <PremiumATSInsights analysis={analysis} />
+      <SectionCard title="AI ATS Review" description="Updated ATS analysis for the currently selected resume and role benchmark.">
+        {busy && !analysis ? (
+          <div className="liquid-glass rounded-[26px] p-6 text-white/55">Running AI improvement and ATS analysis...</div>
+        ) : (
+          <PremiumATSInsights analysis={analysis} />
+        )}
+      </SectionCard>
     </div>
   );
 };

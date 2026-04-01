@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, Target } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useResumeWorkspace } from '../hooks/useResumeWorkspace.js';
@@ -49,6 +49,12 @@ export const JobsPage = () => {
     }
   };
 
+  useEffect(() => {
+    if (token) {
+      searchJobs();
+    }
+  }, []);
+
   if (loading) {
     return <div className="liquid-glass rounded-[30px] p-6 text-white/55">Loading resumes...</div>;
   }
@@ -98,10 +104,11 @@ export const JobsPage = () => {
               >
                 <p className="font-medium text-white">{job.title}</p>
                 <p className="mt-1 text-sm text-white/55">{job.company} | {job.location}</p>
+                <p className="mt-2 text-xs uppercase tracking-[0.22em] text-cyan-200/70">{job.source}</p>
                 <p className="mt-3 text-sm text-white/65">{job.tags?.slice(0, 5).join(', ')}</p>
               </button>
             ))}
-            {!jobs.length ? <p className="text-white/55">Search for a job to load live listings.</p> : null}
+            {!jobs.length ? <p className="text-white/55">No matching live jobs were found for this search yet. Try a broader title like `react developer`, `frontend engineer`, or `node developer`.</p> : null}
           </div>
         </SectionCard>
 
@@ -125,6 +132,7 @@ export const JobsPage = () => {
               <div className="rounded-[26px] border border-white/10 bg-white/[0.03] p-5">
                 <p className="font-medium text-white">{selectedJob.title}</p>
                 <p className="mt-1 text-sm text-white/55">{selectedJob.company} | {selectedJob.location}</p>
+                <p className="mt-2 text-xs uppercase tracking-[0.22em] text-cyan-200/70">{selectedJob.source}</p>
                 <a href={selectedJob.applyUrl} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm text-cyan-200">
                   View job listing
                 </a>
@@ -158,4 +166,3 @@ export const JobsPage = () => {
     </div>
   );
 };
-
