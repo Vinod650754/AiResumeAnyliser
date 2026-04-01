@@ -38,72 +38,89 @@ export const getSharedResume = async (req, res) => {
 };
 
 export const saveResume = async (req, res) => {
-  const payload = req.body;
-  const atsAnalysis = analyzeResumeAgainstJD(payload, payload.jobDescription);
-  const aiSuggestions = await generateAISuggestions({
-    resume: payload,
-    jobDescription: payload.jobDescription,
-    atsAnalysis
-  });
+  try {
+    console.log('👉 SAVE BODY:', req.body);
+    console.log('👉 SAVE USER:', req.user);
 
-  const data = {
-    ...payload,
-    user: req.user._id,
-    atsAnalysis: {
-      ...atsAnalysis,
-      suggestions: aiSuggestions.improvements,
-      grammarNotes: aiSuggestions.grammarFixes
-    }
-  };
+    const payload = req.body;
+    const atsAnalysis = analyzeResumeAgainstJD(payload, payload.jobDescription);
+    const aiSuggestions = await generateAISuggestions({
+      resume: payload,
+      jobDescription: payload.jobDescription,
+      atsAnalysis
+    });
 
-  if (aiSuggestions.rewrittenSummary) {
-    data.summary = aiSuggestions.rewrittenSummary;
-  }
+    const data = {
+      ...payload,
+      user: req.user._id,
+      atsAnalysis: {
+        ...atsAnalysis,
+        suggestions: aiSuggestions.improvements,
+        grammarNotes: aiSuggestions.grammarFixes
+      }
+    };
 
-  let resume;
-  if (payload.id) {
-    resume = await Resume.findOne({ _id: payload.id, user: req.user._id });
-    if (!resume) {
-      const error = new Error('Resume not found');
-      error.statusCode = 404;
-      throw error;
+    if (aiSuggestions.rewrittenSummary) {
+      data.summary = aiSuggestions.rewrittenSummary;
     }
 
-    resume.set({
-      ...data,
-      history: [
-        ...(resume.history || []),
-        {
-          versionLabel: `v${(resume.history?.length || 0) + 1}`,
-          content: resume.toObject(),
-          atsAnalysis: resume.atsAnalysis,
-          savedAt: new Date()
-        }
-      ]
+    let resume;
+    if (payload.id) {
+      resume = await Resume.findOne({ _id: payload.id, user: req.user._id });
+      if (!resume) {
+        const error = new Error('Resume not found');
+        error.statusCode = 404;
+        throw error;
+      }
+
+      resume.set({
+        ...data,
+        history: [
+          ...(resume.history || []),
+          {
+            versionLabel: `v${(resume.history?.length || 0) + 1}`,
+            content: resume.toObject(),
+            atsAnalysis: resume.atsAnalysis,
+            savedAt: new Date()
+          }
+        ]
+      });
+    } else {
+      resume = new Resume({
+        ...data,
+        shareSlug: buildShareSlug(payload.title, payload.personal?.fullName)
+      });
+    }
+
+    const savedResume = await resume.save();
+    console.log('✅ SAVED RESUME:', savedResume);
+
+    const pdfBuffer = await generateResumePdfBuffer(data);
+    const emailResult = await sendResumeEmail({
+      to: [req.user.email, payload.personal?.email],
+      name: req.user.name,
+      pdfBuffer,
+      resumeTitle: payload.title
     });
-  } else {
-    resume = new Resume({
-      ...data,
-      shareSlug: buildShareSlug(payload.title, payload.personal?.fullName)
+
+    console.log('✅ EMAIL RESULT:', emailResult);
+
+    res.json({
+      message: 'Resume saved, PDF generated, and email dispatched',
+      resume: savedResume,
+      pdfBase64: pdfBuffer.toString('base64'),
+      email: emailResult
+    });
+  } catch (error) {
+    console.error('🔥 SAVE ERROR FULL:', error);
+    console.error('🔥 MESSAGE:', error.message);
+    console.error('🔥 STACK:', error.stack);
+
+    res.status(error.statusCode || 500).json({
+      message: error.message,
+      stack: error.stack
     });
   }
-
-  await resume.save();
-
-  const pdfBuffer = await generateResumePdfBuffer(data);
-  const emailResult = await sendResumeEmail({
-    to: [req.user.email, payload.personal?.email],
-    name: req.user.name,
-    pdfBuffer,
-    resumeTitle: payload.title
-  });
-
-  res.json({
-    message: 'Resume saved, PDF generated, and email dispatched',
-    resume,
-    pdfBase64: pdfBuffer.toString('base64'),
-    email: emailResult
-  });
 };
 
 export const deleteResume = async (req, res) => {
