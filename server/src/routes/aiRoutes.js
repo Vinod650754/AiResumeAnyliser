@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { analyzeATS } from '../controllers/atsController.js';
+import { improveResume } from '../controllers/aiController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
-router.post('/analyze', protect, analyzeATS);
+router.post('/improve', protect, improveResume);
 
 export default router;

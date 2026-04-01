@@ -1,12 +1,14 @@
+import { forwardRef } from 'react';
+
 const templateStyles = {
   nova: 'bg-white text-slate-900',
   eclipse: 'bg-slate-950 text-white border border-slate-800',
   aurora: 'bg-gradient-to-br from-sky-50 via-white to-teal-50 text-slate-900'
 };
 
-export const ResumePreview = ({ resume }) => (
+export const ResumePreview = forwardRef(({ resume }, ref) => (
   <div className="glass-panel scrollbar-thin max-h-[calc(100vh-9rem)] overflow-y-auto p-8">
-    <div className={`space-y-6 rounded-[28px] p-8 ${templateStyles[resume.template] || templateStyles.nova}`}>
+    <div ref={ref} className={`space-y-6 rounded-[28px] p-8 ${templateStyles[resume.template] || templateStyles.nova}`}>
       <div>
         <h1 className="font-display text-4xl font-bold">{resume.personal.fullName}</h1>
         <p className="mt-2 opacity-80">{resume.personal.role}</p>
@@ -68,4 +70,4 @@ export const ResumePreview = ({ resume }) => (
       </section>
     </div>
   </div>
-);
+));

@@ -28,7 +28,7 @@ export const AIImproverPage = () => {
     setBusy('improve');
     try {
       const response = await api.post(
-        '/ats/improve',
+        '/ai/improve',
         {
           resume: selectedResume,
           jobDescription: targetNotes

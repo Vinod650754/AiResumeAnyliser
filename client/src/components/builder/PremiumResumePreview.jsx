@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { getTemplateById } from '../../data/templateRegistry.js';
 
 const layoutStyles = {
@@ -6,12 +7,12 @@ const layoutStyles = {
   hero: 'space-y-6'
 };
 
-export const PremiumResumePreview = ({ resume }) => {
+export const PremiumResumePreview = forwardRef(({ resume }, ref) => {
   const template = getTemplateById(resume.template);
 
   return (
     <div className="liquid-glass scrollbar-thin max-h-[calc(100vh-8rem)] overflow-y-auto rounded-[34px] p-5 md:p-8">
-      <div className={`${template.surface} ${template.text} rounded-[28px] p-8 shadow-2xl`}>
+      <div ref={ref} className={`${template.surface} ${template.text} rounded-[28px] p-8 shadow-2xl`}>
         <div className={layoutStyles[template.layout]}>
           <div className="space-y-6">
             <div>
@@ -102,5 +103,4 @@ export const PremiumResumePreview = ({ resume }) => {
       </div>
     </div>
   );
-};
-
+});

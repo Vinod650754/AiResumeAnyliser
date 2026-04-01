@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Download, Save } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 import { defaultResume } from '../data/defaultResume.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { api, withAuth } from '../lib/api.js';
@@ -9,11 +10,25 @@ import { SectionCard } from '../components/ui/SectionCard.jsx';
 import { TemplateSelector } from '../components/builder/TemplateSelector.jsx';
 import { PremiumResumePreview } from '../components/builder/PremiumResumePreview.jsx';
 
-const downloadPdf = (base64, title) => {
-  const link = document.createElement('a');
-  link.href = `data:application/pdf;base64,${base64}`;
-  link.download = `${title.replace(/\s+/g, '-').toLowerCase()}.pdf`;
-  link.click();
+const downloadPdf = async (element, resume) => {
+  if (!element) return;
+
+  const username = (resume.personal?.fullName || resume.title || 'user')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  await html2pdf()
+    .set({
+      margin: 0.35,
+      filename: `resume-${username || 'user'}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    })
+    .from(element)
+    .save();
 };
 
 export const ResumeStudioPage = () => {
@@ -23,6 +38,7 @@ export const ResumeStudioPage = () => {
   const [resume, setResume] = useState(defaultResume);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const previewRef = useRef(null);
 
   useEffect(() => {
     if (!resumeId || !token) return;
@@ -50,9 +66,9 @@ export const ResumeStudioPage = () => {
         .filter(Boolean)
     }));
 
-  const handleSave = async () => {
+const handleSave = async () => {
     setSaving(true);
-    setMessage('');
+    setMessage('Saving your resume...');
 
     try {
       const response = await api.post(
@@ -63,9 +79,17 @@ export const ResumeStudioPage = () => {
         },
         withAuth(token)
       );
-      setResume((prev) => ({ ...prev, ...response.data.resume, id: response.data.resume._id }));
-      downloadPdf(response.data.pdfBase64, resume.title);
-      setMessage('Resume saved. PDF downloaded and email flow triggered.');
+      const savedResume = { ...response.data.resume, id: response.data.resume._id };
+      setResume((prev) => ({ ...prev, ...savedResume }));
+      setMessage('Resume saved successfully. Preparing download...');
+
+      // Export locally from the live preview so download stays instant for the user.
+      await downloadPdf(previewRef.current, {
+        ...resume,
+        ...savedResume
+      });
+
+      setMessage('Resume saved successfully ✅');
       if (!resume.id) {
         navigate(`/app/builder/${response.data.resume._id}`, { replace: true });
       }
@@ -117,7 +141,7 @@ export const ResumeStudioPage = () => {
         </SectionCard>
       </div>
 
-      <PremiumResumePreview resume={resume} />
+      <PremiumResumePreview ref={previewRef} resume={resume} />
     </div>
   );
 };

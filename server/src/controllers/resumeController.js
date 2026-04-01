@@ -1,12 +1,51 @@
 import slugify from 'slugify';
 import { Resume } from '../models/Resume.js';
-import { analyzeResumeAgainstJD } from '../services/atsService.js';
-import { generateAISuggestions } from '../services/aiService.js';
 import { generateResumePdfBuffer } from '../services/pdfService.js';
 import { sendResumeEmail } from '../services/emailService.js';
 
 const buildShareSlug = (title, fullName) =>
   `${slugify(`${fullName || 'resume'}-${title || 'untitled'}`, { lower: true, strict: true })}-${Date.now()}`;
+
+const buildResumePayload = (payload, userId) => ({
+  user: userId,
+  title: payload.title,
+  template: payload.template || 'nova',
+  summary: payload.summary || '',
+  personal: payload.personal,
+  skills: payload.skills || [],
+  experience: payload.experience || [],
+  education: payload.education || [],
+  projects: payload.projects || [],
+  certifications: payload.certifications || [],
+  languages: payload.languages || [],
+  strengths: payload.strengths || [],
+  jobDescription: payload.jobDescription || '',
+  atsAnalysis: payload.atsAnalysis || undefined,
+  jobMatches: payload.jobMatches || [],
+  interviewPrep: payload.interviewPrep || undefined
+});
+
+const sendResumeDeliveryInBackground = ({ resume, user, payload }) => {
+  setImmediate(async () => {
+    try {
+      // Keep save fast by generating the deliverable after the API response is sent.
+      const pdfBuffer = await generateResumePdfBuffer(resume.toObject());
+
+      try {
+        await sendResumeEmail({
+          to: [user.email, payload.personal?.email],
+          name: user.name,
+          pdfBuffer,
+          resumeTitle: payload.title
+        });
+      } catch (emailError) {
+        console.log('Email failed in background:', emailError.message);
+      }
+    } catch (backgroundError) {
+      console.log('Background resume delivery failed:', backgroundError.message);
+    }
+  });
+};
 
 export const getResumes = async (req, res) => {
   const resumes = await Resume.find({ user: req.user._id }).sort({ updatedAt: -1 });
@@ -39,41 +78,26 @@ export const getSharedResume = async (req, res) => {
 
 export const saveResume = async (req, res) => {
   try {
-    console.log('👉 SAVE BODY:', req.body);
-    console.log('👉 SAVE USER:', req.user);
-
     const payload = req.body;
-    const atsAnalysis = analyzeResumeAgainstJD(payload, payload.jobDescription);
-    let aiSuggestions = null;
 
-    try {
-      aiSuggestions = await generateAISuggestions({
-        resume: payload,
-        jobDescription: payload.jobDescription,
-        atsAnalysis
-      });
-    } catch (err) {
-      console.log('AI skipped due to quota');
-      console.log('AI error:', err.message);
+    if (!payload?.title?.trim()) {
+      const error = new Error('Resume title is required');
+      error.statusCode = 400;
+      throw error;
     }
 
-    const data = {
-      ...payload,
-      user: req.user._id,
-      atsAnalysis: {
-        ...atsAnalysis,
-        suggestions: aiSuggestions?.improvements || atsAnalysis.suggestions,
-        grammarNotes: aiSuggestions?.grammarFixes || atsAnalysis.grammarNotes
-      }
-    };
-
-    if (aiSuggestions?.rewrittenSummary) {
-      data.summary = aiSuggestions.rewrittenSummary;
+    if (!payload?.personal?.fullName?.trim()) {
+      const error = new Error('Full name is required');
+      error.statusCode = 400;
+      throw error;
     }
+
+    const data = buildResumePayload(payload, req.user._id);
 
     let resume;
     if (payload.id) {
       resume = await Resume.findOne({ _id: payload.id, user: req.user._id });
+
       if (!resume) {
         const error = new Error('Resume not found');
         error.statusCode = 404;
@@ -100,46 +124,23 @@ export const saveResume = async (req, res) => {
     }
 
     const savedResume = await resume.save();
-    console.log('✅ SAVED RESUME:', savedResume);
 
-    const pdfBuffer = await generateResumePdfBuffer(data);
-    let emailResult = {
-      skipped: true,
-      reason: 'not_attempted'
-    };
+    res.status(200).json({
+      success: true,
+      message: 'Resume saved successfully',
+      resume: savedResume
+    });
 
-    try {
-      emailResult = await sendResumeEmail({
-        to: [req.user.email, payload.personal?.email],
-        name: req.user.name,
-        pdfBuffer,
-        resumeTitle: payload.title
-      });
-    } catch (err) {
-      console.log('Email failed, skipping:', err.message);
-      emailResult = {
-        skipped: true,
-        reason: 'send_failed',
-        message: err.message
-      };
-    }
-
-    console.log('✅ EMAIL RESULT:', emailResult);
-
-    res.json({
-      message: 'Resume saved, PDF generated, and email attempted',
+    // Fire-and-forget delivery so email or PDF work never blocks the user.
+    sendResumeDeliveryInBackground({
       resume: savedResume,
-      pdfBase64: pdfBuffer.toString('base64'),
-      email: emailResult
+      user: req.user,
+      payload
     });
   } catch (error) {
-    console.error('🔥 SAVE ERROR FULL:', error);
-    console.error('🔥 MESSAGE:', error.message);
-    console.error('🔥 STACK:', error.stack);
-
     res.status(error.statusCode || 500).json({
-      message: error.message,
-      stack: error.stack
+      success: false,
+      message: error.message
     });
   }
 };

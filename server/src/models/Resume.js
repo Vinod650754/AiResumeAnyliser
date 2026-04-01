@@ -79,11 +79,6 @@ const resumeSchema = new mongoose.Schema(
     languages: [String],
     strengths: [String],
     jobDescription: String,
-    aiGeneratedContent: {
-      improvedSummary: String,
-      tailoredHighlights: [String],
-      jobMatchNarrative: String
-    },
     atsAnalysis: {
       score: Number,
       keywordCoverage: Number,

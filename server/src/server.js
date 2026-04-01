@@ -13,6 +13,7 @@ import authRoutes from './routes/authRoutes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import atsRoutes from './routes/atsRoutes.js';
+import aiRoutes from './routes/aiRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import interviewRoutes from './routes/interviewRoutes.js';
 
@@ -45,6 +46,7 @@ app.use('/api/resumes', resumeRoutes);
 app.use('/api/resume', resumeRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ats', atsRoutes);
+app.use('/api/ai', aiRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/interview', interviewRoutes);
 
