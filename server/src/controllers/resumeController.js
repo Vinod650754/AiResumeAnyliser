@@ -103,17 +103,31 @@ export const saveResume = async (req, res) => {
     console.log('✅ SAVED RESUME:', savedResume);
 
     const pdfBuffer = await generateResumePdfBuffer(data);
-    const emailResult = await sendResumeEmail({
-      to: [req.user.email, payload.personal?.email],
-      name: req.user.name,
-      pdfBuffer,
-      resumeTitle: payload.title
-    });
+    let emailResult = {
+      skipped: true,
+      reason: 'not_attempted'
+    };
+
+    try {
+      emailResult = await sendResumeEmail({
+        to: [req.user.email, payload.personal?.email],
+        name: req.user.name,
+        pdfBuffer,
+        resumeTitle: payload.title
+      });
+    } catch (err) {
+      console.log('Email failed, skipping:', err.message);
+      emailResult = {
+        skipped: true,
+        reason: 'send_failed',
+        message: err.message
+      };
+    }
 
     console.log('✅ EMAIL RESULT:', emailResult);
 
     res.json({
-      message: 'Resume saved, PDF generated, and email dispatched',
+      message: 'Resume saved, PDF generated, and email attempted',
       resume: savedResume,
       pdfBase64: pdfBuffer.toString('base64'),
       email: emailResult
