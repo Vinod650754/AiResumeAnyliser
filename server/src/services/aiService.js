@@ -1,26 +1,76 @@
-import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 
-const client = process.env.OPENAI_API_KEY
-  ? new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    })
-  : null;
+const geminiClient = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+const groqClient = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
-const createJsonCompletion = async ({ system, user, fallback }) => {
-  if (!client) {
-    return fallback;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+
+const extractJson = (raw) => {
+  if (!raw) {
+    throw new Error('Empty model response');
   }
 
-  const completion = await client.chat.completions.create({
-    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  const trimmed = raw.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const candidate = fenced ? fenced[1] : trimmed;
+  const firstBrace = candidate.indexOf('{');
+  const lastBrace = candidate.lastIndexOf('}');
+  const jsonString = firstBrace >= 0 && lastBrace > firstBrace ? candidate.slice(firstBrace, lastBrace + 1) : candidate;
+  return JSON.parse(jsonString);
+};
+
+const createProviderPrompt = (system, user) => `${system}\n\nReturn valid JSON only with no markdown wrappers.\n\n${user}`;
+
+const generateWithGemini = async ({ system, user }) => {
+  if (!geminiClient) {
+    throw new Error('Gemini not configured');
+  }
+
+  const response = await geminiClient.models.generateContent({
+    model: GEMINI_MODEL,
+    contents: createProviderPrompt(system, user)
+  });
+
+  return extractJson(response.text);
+};
+
+const generateWithGroq = async ({ system, user }) => {
+  if (!groqClient) {
+    throw new Error('Groq not configured');
+  }
+
+  const completion = await groqClient.chat.completions.create({
+    model: GROQ_MODEL,
+    temperature: 0.3,
     response_format: { type: 'json_object' },
     messages: [
-      { role: 'system', content: system },
+      { role: 'system', content: `${system} Return valid JSON only.` },
       { role: 'user', content: user }
     ]
   });
 
-  return JSON.parse(completion.choices[0].message.content);
+  return extractJson(completion.choices[0]?.message?.content || '');
+};
+
+const createJsonCompletion = async ({ system, user, fallback }) => {
+  const failures = [];
+
+  try {
+    return await generateWithGemini({ system, user });
+  } catch (error) {
+    failures.push(`Gemini: ${error.message}`);
+  }
+
+  try {
+    return await generateWithGroq({ system, user });
+  } catch (error) {
+    failures.push(`Groq: ${error.message}`);
+  }
+
+  console.log(`AI fallback engaged. ${failures.join(' | ')}`);
+  return fallback;
 };
 
 const collectExperienceBullets = (resume) => (resume.experience || []).flatMap((item) => item.highlights || []).slice(0, 6);

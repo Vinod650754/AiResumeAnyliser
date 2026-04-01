@@ -72,7 +72,8 @@ const matchesSearch = (job, normalizedQuery, normalizedLocation) => {
 
   const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
   const queryScore = queryTokens.length ? queryTokens.filter((token) => haystack.includes(token)).length / queryTokens.length : 1;
-  const locationMatch = normalizedLocation ? haystack.includes(normalizedLocation) : true;
+  const locationTokens = normalizedLocation.split(/\s+/).filter(Boolean);
+  const locationMatch = locationTokens.length ? locationTokens.every((token) => haystack.includes(token)) : true;
 
   return queryScore >= 0.4 && locationMatch;
 };
