@@ -42,6 +42,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
+app.use('/api/resume', resumeRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ats', atsRoutes);
 app.use('/api/jobs', jobRoutes);
