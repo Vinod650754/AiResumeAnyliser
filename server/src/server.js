@@ -41,6 +41,14 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.get('/', (_req, res) => {
+  res.json({
+    status: 'OK',
+    message: 'API is live',
+    endpoints: ['/api/health', '/api/resumes/save', '/api/ai/improve']
+  });
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/resume', resumeRoutes);
