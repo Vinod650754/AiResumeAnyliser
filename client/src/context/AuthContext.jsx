@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../lib/config.js';
 
 const AuthContext = createContext(null);
-
-const API_URL = import.meta.env.VITE_API_URL;
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('resume_token'));
@@ -18,7 +17,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     axios
-      .get(`${API_URL}/auth/me`, {
+      .get(`${API_BASE_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       .then((response) => {
@@ -37,7 +36,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (formData, mode) => {
     const endpoint = mode === 'register' ? 'register' : 'login';
-    const response = await axios.post(`${API_URL}/auth/${endpoint}`, formData);
+    const response = await axios.post(`${API_BASE_URL}/auth/${endpoint}`, formData);
     persistSession(response.data);
   };
 
