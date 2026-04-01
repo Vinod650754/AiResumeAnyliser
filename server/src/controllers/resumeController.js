@@ -44,23 +44,30 @@ export const saveResume = async (req, res) => {
 
     const payload = req.body;
     const atsAnalysis = analyzeResumeAgainstJD(payload, payload.jobDescription);
-    const aiSuggestions = await generateAISuggestions({
-      resume: payload,
-      jobDescription: payload.jobDescription,
-      atsAnalysis
-    });
+    let aiSuggestions = null;
+
+    try {
+      aiSuggestions = await generateAISuggestions({
+        resume: payload,
+        jobDescription: payload.jobDescription,
+        atsAnalysis
+      });
+    } catch (err) {
+      console.log('AI skipped due to quota');
+      console.log('AI error:', err.message);
+    }
 
     const data = {
       ...payload,
       user: req.user._id,
       atsAnalysis: {
         ...atsAnalysis,
-        suggestions: aiSuggestions.improvements,
-        grammarNotes: aiSuggestions.grammarFixes
+        suggestions: aiSuggestions?.improvements || atsAnalysis.suggestions,
+        grammarNotes: aiSuggestions?.grammarFixes || atsAnalysis.grammarNotes
       }
     };
 
-    if (aiSuggestions.rewrittenSummary) {
+    if (aiSuggestions?.rewrittenSummary) {
       data.summary = aiSuggestions.rewrittenSummary;
     }
 
