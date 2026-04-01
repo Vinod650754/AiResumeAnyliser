@@ -1,0 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply min-h-screen bg-black font-body text-slate-100 antialiased;
+  background-image:
+    radial-gradient(circle at top, rgba(34, 211, 238, 0.12), transparent 24%),
+    radial-gradient(circle at 78% 12%, rgba(168, 85, 247, 0.14), transparent 18%),
+    radial-gradient(circle at 24% 70%, rgba(255, 255, 255, 0.08), transparent 22%),
+    linear-gradient(180deg, #000000 0%, #030712 100%);
+}
+
+#root {
+  @apply min-h-screen;
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-display {
+  font-family: 'Instrument Serif', serif;
+  letter-spacing: -0.03em;
+}
+
+body,
+button,
+input,
+textarea,
+select {
+  font-family: 'Barlow', sans-serif;
+  letter-spacing: 0.01em;
+}
+
+.glass-panel,
+.liquid-glass {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.025);
+  backdrop-filter: blur(24px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 25px 80px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.liquid-glass::before,
+.liquid-glass-strong::before,
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.18), transparent 28%, transparent 68%, rgba(34,211,238,0.14));
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  padding: 1px;
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+}
+
+.liquid-glass-strong {
+  position: relative;
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  background:
+    radial-gradient(circle at top left, rgba(34, 211, 238, 0.2), transparent 30%),
+    linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)),
+    rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(30px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    0 30px 120px rgba(0,0,0,0.56),
+    0 0 50px rgba(34,211,238,0.12);
+}
+
+.grid-bg {
+  background-size: 26px 26px;
+  background-image:
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+}
+
+.section-fade {
+  background:
+    linear-gradient(180deg, transparent, rgba(255,255,255,0.02) 20%, transparent 100%);
+}
+
+.hero-video-shell {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.hero-video-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at center, transparent 10%, rgba(0,0,0,0.55) 74%),
+    linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.72));
+}
+
+.hero-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+}
