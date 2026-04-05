@@ -115,15 +115,28 @@ export const saveResume = async (req, res) => {
 
     const savedResume = await resume.save();
     
-    // Return immediately without waiting for email
+    // Return immediately with processing status
+    const deliveryStatus = {
+      status: 'processing',
+      message: 'Email delivery started in background',
+      pdf: {
+        status: 'pending',
+        message: 'PDF generation in progress'
+      },
+      email: {
+        status: 'queued',
+        message: 'Email queued for delivery with automatic retry'
+      }
+    };
+
     res.status(200).json({
       success: true,
       message: 'Resume saved successfully',
       resume: savedResume,
-      delivery: { status: 'processing', message: 'Email delivery started in background' }
+      delivery: deliveryStatus
     });
 
-    // Send email in background with retries if not skipped
+    // Send email in background with persistent retries if not skipped
     if (!payload.skipDelivery) {
       deliverResumeAsync({
         resume: savedResume,

@@ -105,13 +105,54 @@ export const deliverResumeWithAttachment = async ({ resume, user, payload, clien
 };
 
 export const deliverResumeAsync = async ({ resume, user, payload, clientPdfBase64 }) => {
-  // Fire and forget - deliver in background with retry
-  setImmediate(async () => {
-    try {
-      await deliverResumeWithAttachment({ resume, user, payload, clientPdfBase64 });
-      console.log('Background email delivery completed for resume:', payload.title);
-    } catch (error) {
-      console.error('Background email delivery failed:', error.message);
+  // Send email in background with persistent retry until success
+  const startDelivery = async () => {
+    let retryCount = 0;
+    const maxRetries = 10;
+    const baseDelay = 5000; // 5 seconds
+
+    while (retryCount < maxRetries) {
+      try {
+        let pdfBuffer = decodeClientPdf(clientPdfBase64);
+
+        if (!pdfBuffer) {
+          try {
+            pdfBuffer = await generateResumePdfBuffer(resume.toObject());
+          } catch (pdfError) {
+            console.error('Failed to generate PDF:', pdfError.message);
+            return;
+          }
+        }
+
+        const result = await sendResumeEmail({
+          to: [user.email, payload.personal?.email],
+          name: user.name,
+          pdfBuffer,
+          resumeTitle: payload.title
+        });
+
+        if (!result.skipped) {
+          console.log(`✓ Email successfully sent for resume "${payload.title}" (attempt ${retryCount + 1}/${maxRetries})`);
+          return;
+        }
+
+        console.log(`Email skipped: ${result.reason}`);
+        return;
+      } catch (error) {
+        retryCount++;
+        console.log(`Email delivery attempt ${retryCount}/${maxRetries} failed: ${error.message}`);
+
+        if (retryCount < maxRetries) {
+          const delayMs = baseDelay * retryCount;
+          console.log(`Retrying in ${delayMs / 1000}s...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
     }
-  });
+
+    console.error(`✗ Email delivery failed after ${maxRetries} attempts for resume "${payload.title}"`);
+  };
+
+  // Fire and forget - run in background
+  setImmediate(() => startDelivery());
 };
