@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 
 import { connectDatabase } from './config/db.js';
 import { errorHandler, notFoundHandler } from './middleware/errorMiddleware.js';
+import { startEmailProcessor } from './services/emailQueueService.js';
 import authRoutes from './routes/authRoutes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
@@ -65,6 +66,10 @@ const port = process.env.PORT || 5000;
 
 const start = async () => {
   await connectDatabase();
+  
+  // Start background email processor
+  startEmailProcessor(30000); // Process every 30 seconds
+  
   app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
   });

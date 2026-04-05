@@ -1,5 +1,6 @@
 import { generateResumePdfBuffer } from './pdfService.js';
 import { sendResumeEmail } from './emailService.js';
+import { queueEmail } from './emailQueueService.js';
 
 export const decodeClientPdf = (value) => {
   if (!value || typeof value !== 'string') {
@@ -108,7 +109,7 @@ export const deliverResumeAsync = async ({ resume, user, payload, clientPdfBase6
   // Send email in background with persistent retry until success
   const startDelivery = async () => {
     let retryCount = 0;
-    const maxRetries = 10;
+    const maxRetries = 5; // Reduced since we have queue as backup
     const baseDelay = 5000; // 5 seconds
 
     while (retryCount < maxRetries) {
@@ -150,7 +151,26 @@ export const deliverResumeAsync = async ({ resume, user, payload, clientPdfBase6
       }
     }
 
-    console.error(`✗ Email delivery failed after ${maxRetries} attempts for resume "${payload.title}"`);
+    // If all immediate retries failed, queue for persistent retry
+    console.error(`✗ Immediate delivery failed for resume "${payload.title}", queuing for persistent retry...`);
+    try {
+      const pdfBuffer = clientPdfBase64 
+        ? decodeClientPdf(clientPdfBase64)
+        : await generateResumePdfBuffer(resume.toObject());
+      
+      await queueEmail({
+        resumeId: resume._id,
+        userId: user._id,
+        email: [user.email, payload.personal?.email, payload.email].filter(Boolean)[0],
+        name: user.name,
+        resumeTitle: payload.title,
+        pdfBuffer
+      });
+      
+      console.log(`✓ Email queued for persistent retry`);
+    } catch (queueError) {
+      console.error(`✗ Failed to queue email: ${queueError.message}`);
+    }
   };
 
   // Fire and forget - run in background

@@ -164,3 +164,40 @@ export const deleteResume = async (req, res) => {
 
   res.json({ message: 'Resume deleted' });
 };
+
+export const getEmailStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if email exists in queue
+    const { EmailQueue } = await import('../models/EmailQueue.js');
+    const emailStatus = await EmailQueue.findOne({ resumeId: id }).sort({ createdAt: -1 });
+    
+    if (!emailStatus) {
+      return res.json({
+        resumeId: id,
+        status: 'unknown',
+        message: 'No email delivery record found'
+      });
+    }
+    
+    res.json({
+      resumeId: id,
+      status: emailStatus.status,
+      attempts: emailStatus.attempts,
+      maxAttempts: emailStatus.maxAttempts,
+      email: emailStatus.email,
+      lastError: emailStatus.lastError,
+      lastAttemptAt: emailStatus.lastAttemptAt,
+      sentAt: emailStatus.sentAt,
+      nextRetryAt: emailStatus.nextRetryAt,
+      metadata: emailStatus.metadata
+    });
+  } catch (error) {
+    console.error('Error getting email status:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to get email status'
+    });
+  }
+};
