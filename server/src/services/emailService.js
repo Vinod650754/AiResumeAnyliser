@@ -8,14 +8,29 @@ const getTransporter = () => {
 
   return nodemailer.createTransport({
     service: 'gmail',
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_APP_PASSWORD
     }
   });
+};
+
+const sendEmailWithRetry = async (transporter, mailOptions, maxRetries = 3, delay = 2000) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      return { success: true, info };
+    } catch (error) {
+      console.log(`Email send attempt ${attempt}/${maxRetries} failed:`, error.message);
+      if (attempt === maxRetries) {
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
 };
 
 export const sendResumeEmail = async ({ to, name, pdfBuffer, resumeTitle }) => {
@@ -38,7 +53,7 @@ export const sendResumeEmail = async ({ to, name, pdfBuffer, resumeTitle }) => {
     return { skipped: true, reason: 'pdf_attachment_required' };
   }
 
-  const info = await transporter.sendMail({
+  const mailOptions = {
     from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
     to: recipients.join(', '),
     subject: `Your resume is ready: ${safeResumeTitle}`,
@@ -49,13 +64,15 @@ export const sendResumeEmail = async ({ to, name, pdfBuffer, resumeTitle }) => {
         content: pdfBuffer
       }
     ]
-  });
+  };
+
+  const result = await sendEmailWithRetry(transporter, mailOptions);
 
   return {
     skipped: false,
     attachedPdf: true,
-    accepted: info.accepted,
-    rejected: info.rejected,
-    response: info.response
+    accepted: result.info.accepted,
+    rejected: result.info.rejected,
+    response: result.info.response
   };
 };

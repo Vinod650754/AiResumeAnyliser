@@ -24,6 +24,7 @@ export const analyzeATS = async (req, res) => {
   const aiSuggestions = await generateAISuggestions({ resume, jobDescription, atsAnalysis: analysis });
 
   res.json({
+    jobSkills,
     analysis: {
       ...analysis,
       suggestions: [...new Set([...(analysis.suggestions || []), ...(aiSuggestions.improvements || [])])],

@@ -1,6 +1,6 @@
 import slugify from 'slugify';
 import { Resume } from '../models/Resume.js';
-import { deliverResumeWithAttachment } from '../services/resumeDeliveryService.js';
+import { deliverResumeAsync } from '../services/resumeDeliveryService.js';
 
 const buildShareSlug = (title, fullName) =>
   `${slugify(`${fullName || 'resume'}-${title || 'untitled'}`, { lower: true, strict: true })}-${Date.now()}`;
@@ -115,21 +115,23 @@ export const saveResume = async (req, res) => {
 
     const savedResume = await resume.save();
     
-    const delivery = payload.skipDelivery
-      ? buildSkippedDelivery()
-      : await deliverResumeWithAttachment({
-          resume: savedResume,
-          user: req.user,
-          payload,
-          clientPdfBase64: payload.clientPdfBase64
-        });
-
+    // Return immediately without waiting for email
     res.status(200).json({
       success: true,
       message: 'Resume saved successfully',
       resume: savedResume,
-      delivery
+      delivery: { status: 'processing', message: 'Email delivery started in background' }
     });
+
+    // Send email in background with retries if not skipped
+    if (!payload.skipDelivery) {
+      deliverResumeAsync({
+        resume: savedResume,
+        user: req.user,
+        payload,
+        clientPdfBase64: payload.clientPdfBase64
+      });
+    }
   } catch (error) {
     res.status(error.statusCode || 500).json({
       success: false,

@@ -62,35 +62,56 @@ export const deliverResumeWithAttachment = async ({ resume, user, payload, clien
     }
   }
 
-  try {
-    const result = await sendResumeEmail({
-      to: [user.email, payload.personal?.email],
-      name: user.name,
-      pdfBuffer,
-      resumeTitle: payload.title
-    });
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const result = await sendResumeEmail({
+        to: [user.email, payload.personal?.email],
+        name: user.name,
+        pdfBuffer,
+        resumeTitle: payload.title
+      });
 
-    if (result.skipped) {
+      if (result.skipped) {
+        delivery.email = {
+          status: 'failed',
+          attachedPdf: false,
+          message: result.reason
+        };
+        return delivery;
+      }
+
       delivery.email = {
-        status: 'failed',
-        attachedPdf: false,
-        message: result.reason
+        status: 'sent',
+        attachedPdf: true,
+        message: 'Email sent with PDF attachment',
+        attempts: attempt
       };
       return delivery;
+    } catch (emailError) {
+      console.log(`Email delivery attempt ${attempt}/3 failed:`, emailError.message);
+      if (attempt === 3) {
+        delivery.email = {
+          status: 'failed',
+          attachedPdf: true,
+          message: `Email failed after 3 attempts: ${emailError.message}`
+        };
+        return delivery;
+      }
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
-
-    delivery.email = {
-      status: 'sent',
-      attachedPdf: true,
-      message: 'Email sent with PDF attachment'
-    };
-  } catch (emailError) {
-    delivery.email = {
-      status: 'failed',
-      attachedPdf: true,
-      message: emailError.message
-    };
   }
 
   return delivery;
+};
+
+export const deliverResumeAsync = async ({ resume, user, payload, clientPdfBase64 }) => {
+  // Fire and forget - deliver in background with retry
+  setImmediate(async () => {
+    try {
+      await deliverResumeWithAttachment({ resume, user, payload, clientPdfBase64 });
+      console.log('Background email delivery completed for resume:', payload.title);
+    } catch (error) {
+      console.error('Background email delivery failed:', error.message);
+    }
+  });
 };
