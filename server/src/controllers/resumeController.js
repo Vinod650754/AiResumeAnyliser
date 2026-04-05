@@ -1,7 +1,6 @@
 import slugify from 'slugify';
 import { Resume } from '../models/Resume.js';
-import { generateResumePdfBuffer } from '../services/pdfService.js';
-import { sendResumeEmail } from '../services/emailService.js';
+import { deliverResumeWithAttachment } from '../services/resumeDeliveryService.js';
 
 const buildShareSlug = (title, fullName) =>
   `${slugify(`${fullName || 'resume'}-${title || 'untitled'}`, { lower: true, strict: true })}-${Date.now()}`;
@@ -25,27 +24,18 @@ const buildResumePayload = (payload, userId) => ({
   interviewPrep: payload.interviewPrep || undefined
 });
 
-const sendResumeDeliveryInBackground = ({ resume, user, payload }) => {
-  setImmediate(async () => {
-    try {
-      // Keep save fast by generating the deliverable after the API response is sent.
-      const pdfBuffer = await generateResumePdfBuffer(resume.toObject());
-
-      try {
-        await sendResumeEmail({
-          to: [user.email, payload.personal?.email],
-          name: user.name,
-          pdfBuffer,
-          resumeTitle: payload.title
-        });
-      } catch (emailError) {
-        console.log('Email failed in background:', emailError.message);
-      }
-    } catch (backgroundError) {
-      console.log('Background resume delivery failed:', backgroundError.message);
-    }
-  });
-};
+const buildSkippedDelivery = () => ({
+  pdf: {
+    status: 'skipped',
+    source: null,
+    message: 'Delivery skipped for an internal workspace update'
+  },
+  email: {
+    status: 'skipped',
+    attachedPdf: false,
+    message: 'Email skipped for an internal workspace update'
+  }
+});
 
 export const getResumes = async (req, res) => {
   const resumes = await Resume.find({ user: req.user._id }).sort({ updatedAt: -1 });
@@ -124,18 +114,20 @@ export const saveResume = async (req, res) => {
     }
 
     const savedResume = await resume.save();
+    const delivery = payload.skipDelivery
+      ? buildSkippedDelivery()
+      : await deliverResumeWithAttachment({
+          resume: savedResume,
+          user: req.user,
+          payload,
+          clientPdfBase64: payload.clientPdfBase64
+        });
 
     res.status(200).json({
       success: true,
       message: 'Resume saved successfully',
-      resume: savedResume
-    });
-
-    // Fire-and-forget delivery so email or PDF work never blocks the user.
-    sendResumeDeliveryInBackground({
       resume: savedResume,
-      user: req.user,
-      payload
+      delivery
     });
   } catch (error) {
     res.status(error.statusCode || 500).json({

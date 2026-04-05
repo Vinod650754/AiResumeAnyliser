@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import { RefreshCcw, Sparkles } from 'lucide-react';
+ï»¿import { useEffect, useMemo, useState } from 'react';
+import { RefreshCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useResumeWorkspace } from '../hooks/useResumeWorkspace.js';
 import { api, withAuth } from '../lib/api.js';
 import { SectionCard } from '../components/ui/SectionCard.jsx';
 import { ResumeSelectorBar } from '../components/workspace/ResumeSelectorBar.jsx';
-import { PremiumATSInsights } from '../components/builder/PremiumATSInsights.jsx';
 
 const ImprovementCard = ({ title, children, accent = 'text-white/42' }) => (
   <div className="liquid-glass rounded-[28px] p-5">
@@ -18,7 +17,6 @@ export const AIImproverPage = () => {
   const { token } = useAuth();
   const { resumes, selectedResume, selectedResumeId, setSelectedResumeId, loading } = useResumeWorkspace(token);
   const [improved, setImproved] = useState(null);
-  const [analysis, setAnalysis] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -32,27 +30,16 @@ export const AIImproverPage = () => {
     setBusy(true);
     setMessage('');
     try {
-      const [improveResponse, atsResponse] = await Promise.all([
-        api.post(
-          '/ai/improve',
-          {
-            resume: selectedResume,
-            jobDescription: selectedResume.jobDescription
-          },
-          withAuth(token)
-        ),
-        api.post(
-          '/ats/analyze',
-          {
-            resume: selectedResume,
-            jobDescription: selectedResume.jobDescription
-          },
-          withAuth(token)
-        )
-      ]);
+      const improveResponse = await api.post(
+        '/ai/improve',
+        {
+          resume: selectedResume,
+          jobDescription: selectedResume.jobDescription
+        },
+        withAuth(token)
+      );
 
       setImproved(improveResponse.data.improved);
-      setAnalysis(atsResponse.data.analysis);
     } catch (error) {
       setMessage(error.response?.data?.message || 'Unable to generate AI improvements right now.');
     } finally {
@@ -62,7 +49,6 @@ export const AIImproverPage = () => {
 
   useEffect(() => {
     setImproved(null);
-    setAnalysis(selectedResume?.atsAnalysis || null);
     if (selectedResume && token) {
       runImprove();
     }
@@ -82,12 +68,12 @@ export const AIImproverPage = () => {
         resumes={resumes}
         selectedResumeId={selectedResumeId}
         onChange={setSelectedResumeId}
-        helperText="Choose a resume and the AI improver will automatically rewrite and polish it side by side."
+        helperText="Choose a resume and the AI improver will automatically rewrite and polish it side by side. ATS scoring now lives in its own dedicated tab."
       />
 
       <SectionCard
         title="AI Resume Improver"
-        description="The left side shows your current resume language. The right side shows a stronger AI-polished version with better grammar, summary quality, and recruiter framing."
+        description="This tab stays focused on rewriting and polishing resume language. Use ATS Analyzer separately when you want role-fit scoring and skill-gap analysis."
         actions={
           <button
             type="button"
@@ -116,7 +102,7 @@ export const AIImproverPage = () => {
             <ImprovementCard title="Current Experience Highlights">
               <ul className="space-y-2">
                 {originalHighlights.map((highlight) => (
-                  <li key={highlight}>• {highlight}</li>
+                  <li key={highlight}>- {highlight}</li>
                 ))}
               </ul>
             </ImprovementCard>
@@ -138,7 +124,7 @@ export const AIImproverPage = () => {
             <ImprovementCard title="AI Improved Highlights" accent="text-cyan-200/80">
               <ul className="space-y-2">
                 {(improved?.improvedHighlights || []).map((highlight) => (
-                  <li key={highlight}>• {highlight}</li>
+                  <li key={highlight}>- {highlight}</li>
                 ))}
               </ul>
             </ImprovementCard>
@@ -148,7 +134,7 @@ export const AIImproverPage = () => {
                   <p className="text-xs uppercase tracking-[0.24em] text-white/40">Grammar fixes</p>
                   <ul className="mt-2 space-y-2">
                     {(improved?.grammarFixes || []).map((item) => (
-                      <li key={item}>• {item}</li>
+                      <li key={item}>- {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -156,7 +142,7 @@ export const AIImproverPage = () => {
                   <p className="text-xs uppercase tracking-[0.24em] text-white/40">Recruiter notes</p>
                   <ul className="mt-2 space-y-2">
                     {(improved?.recruiterNotes || []).map((item) => (
-                      <li key={item}>• {item}</li>
+                      <li key={item}>- {item}</li>
                     ))}
                   </ul>
                 </div>
@@ -165,14 +151,6 @@ export const AIImproverPage = () => {
           </div>
         </div>
         {message ? <p className="mt-4 text-sm text-rose-200">{message}</p> : null}
-      </SectionCard>
-
-      <SectionCard title="AI ATS Review" description="Updated ATS analysis for the currently selected resume and role benchmark.">
-        {busy && !analysis ? (
-          <div className="liquid-glass rounded-[26px] p-6 text-white/55">Running AI improvement and ATS analysis...</div>
-        ) : (
-          <PremiumATSInsights analysis={analysis} />
-        )}
       </SectionCard>
     </div>
   );

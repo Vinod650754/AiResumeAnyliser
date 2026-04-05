@@ -16,6 +16,9 @@ const DashboardPage = lazy(() =>
 const AIImproverPage = lazy(() =>
   import('./pages/AIImproverPage.jsx').then((module) => ({ default: module.AIImproverPage }))
 );
+const ATSAnalyzerPage = lazy(() =>
+  import('./pages/ATSAnalyzerPage.jsx').then((module) => ({ default: module.ATSAnalyzerPage }))
+);
 const JobsPage = lazy(() =>
   import('./pages/JobsPage.jsx').then((module) => ({ default: module.JobsPage }))
 );
@@ -23,7 +26,7 @@ const InterviewPrepPage = lazy(() =>
   import('./pages/InterviewPrepWorkspacePage.jsx').then((module) => ({ default: module.InterviewPrepWorkspacePage }))
 );
 const ResumeBuilderPage = lazy(() =>
-  import('./pages/ResumeStudioPage.jsx').then((module) => ({ default: module.ResumeStudioPage }))
+  import('./pages/ResumeStudioWorkspacePage.jsx').then((module) => ({ default: module.ResumeStudioWorkspacePage }))
 );
 const SharedResumePage = lazy(() =>
   import('./pages/SharedResumePage.jsx').then((module) => ({ default: module.SharedResumePage }))
@@ -63,6 +66,7 @@ export default function App() {
             <Route index element={<DashboardPage />} />
             <Route path="builder/:resumeId?" element={<ResumeBuilderPage />} />
             <Route path="improver" element={<AIImproverPage />} />
+            <Route path="ats" element={<ATSAnalyzerPage />} />
             <Route path="jobs" element={<JobsPage />} />
             <Route path="interview" element={<InterviewPrepPage />} />
           </Route>

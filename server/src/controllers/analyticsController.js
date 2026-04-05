@@ -24,10 +24,12 @@ export const getDashboardAnalytics = async (req, res) => {
       averageScore: resumes.length
         ? Math.round(resumes.reduce((sum, item) => sum + (item.atsAnalysis?.score || 0), 0) / resumes.length)
         : 0,
-      sharedLinks: resumes.filter((item) => item.shareSlug).length
+      sharedLinks: resumes.filter((item) => item.shareSlug).length,
+      atsReady: resumes.filter((item) => item.atsAnalysis?.score).length,
+      jobMatchesReady: resumes.filter((item) => (item.jobMatches || []).length).length,
+      interviewReady: resumes.filter((item) => item.interviewPrep?.roleFocus).length
     },
     scoreTrend,
     weeklyActivity
   });
 };
-

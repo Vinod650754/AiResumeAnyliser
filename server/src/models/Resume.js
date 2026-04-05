@@ -98,11 +98,23 @@ const resumeSchema = new mongoose.Schema(
     ],
     interviewPrep: {
       roleFocus: String,
+      basicQuestions: [String],
       technicalQuestions: [String],
-      behavioralQuestions: [String],
-      projectQuestions: [String],
+      scenarioQuestions: [String],
       answers: mongoose.Schema.Types.Mixed,
-      coachingTips: [String]
+      coachingTips: [String],
+      evaluation: {
+        overallScore: Number,
+        answeredCount: Number,
+        summary: String,
+        results: [
+          {
+            question: String,
+            score: Number,
+            feedback: String
+          }
+        ]
+      }
     },
     shareSlug: {
       type: String,

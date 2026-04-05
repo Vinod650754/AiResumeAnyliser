@@ -68,10 +68,38 @@ const buildResumeBlob = (resume) =>
     .filter(Boolean)
     .join(' ');
 
-const detectBenchmark = (resume, jobDescription = '') => {
-  const haystack = `${resume.personal?.role || ''} ${resume.title || ''} ${jobDescription}`.toLowerCase();
+const detectBenchmark = (resume, jobDescription = '', targetRole = '') => {
+  const haystack = `${targetRole} ${resume.personal?.role || ''} ${resume.title || ''} ${jobDescription}`.toLowerCase();
   return ROLE_BENCHMARKS.find((benchmark) => benchmark.patterns.some((pattern) => haystack.includes(pattern))) || ROLE_BENCHMARKS[0];
 };
+
+const KNOWN_SKILL_PATTERNS = [
+  ['react', /(^|[\s/,(])react($|[\s/),.])/i],
+  ['node.js', /\bnode(?:\.js)?\b/i],
+  ['express', /\bexpress\b/i],
+  ['mongodb', /\bmongodb\b/i],
+  ['javascript', /\bjavascript\b|\bjs\b/i],
+  ['typescript', /\btypescript\b|\bts\b/i],
+  ['rest api', /\brest\b|\bapi\b/i],
+  ['graphql', /\bgraphql\b/i],
+  ['aws', /\baws\b|\bamazon web services\b/i],
+  ['docker', /\bdocker\b/i],
+  ['kubernetes', /\bkubernetes\b|\bk8s\b/i],
+  ['sql', /\bsql\b|\bpostgres\b|\bmysql\b/i],
+  ['redis', /\bredis\b/i],
+  ['git', /\bgit\b/i],
+  ['tailwind css', /\btailwind\b/i],
+  ['next.js', /\bnext(?:\.js)?\b/i],
+  ['testing', /\btesting\b|\bjest\b|\bcypress\b|\bvitest\b/i],
+  ['ci/cd', /\bci\/cd\b|\bci\b|\bcd\b|\bgithub actions\b/i],
+  ['system design', /\bsystem design\b/i],
+  ['authentication', /\bauthentication\b|\bauthorization\b|\bjwt\b/i],
+  ['prompt engineering', /\bprompt\b/i],
+  ['ai integration', /\bopenai\b|\bgemini\b|\bgroq\b|\bllm\b|\bai\b/i]
+];
+
+const extractKnownSkills = (text = '') =>
+  KNOWN_SKILL_PATTERNS.filter(([, pattern]) => pattern.test(text)).map(([label]) => label);
 
 const calculateStructureScore = (resume) => {
   const summaryScore = resume.summary ? 12 : 0;
@@ -103,25 +131,29 @@ const getKeywordMatches = (jobTokens, resumeTokens) => {
   return { matched, missing };
 };
 
-export const analyzeResumeAgainstJD = (resume, jobDescription = '') => {
-  const benchmark = detectBenchmark(resume, jobDescription);
+export const analyzeResumeAgainstJD = (resume, jobDescription = '', targetRole = '') => {
+  const benchmark = detectBenchmark(resume, jobDescription, targetRole);
   const resumeBlob = buildResumeBlob(resume);
   const resumeTokens = tokenizeSet(resumeBlob);
   const jdTokens = [...new Set(normalizeTokens(jobDescription))].slice(0, 40);
   const benchmarkTokens = [...new Set([...benchmark.requiredSkills, ...benchmark.bonusSkills])];
+  const targetSkills = [...new Set([...extractKnownSkills(`${targetRole} ${jobDescription}`), ...benchmark.requiredSkills])];
 
   const { matched: matchedJobKeywords, missing: missingJobKeywords } = getKeywordMatches(jdTokens, resumeTokens);
   const { matched: matchedBenchmarkKeywords, missing: missingBenchmarkKeywords } = getKeywordMatches(benchmarkTokens, resumeTokens);
+  const { matched: matchedTargetSkills, missing: missingTargetSkills } = getKeywordMatches(targetSkills, resumeTokens);
 
   const keywordCoverage = jdTokens.length ? Math.round((matchedJobKeywords.length / jdTokens.length) * 100) : 72;
   const benchmarkCoverage = benchmarkTokens.length ? Math.round((matchedBenchmarkKeywords.length / benchmarkTokens.length) * 100) : 70;
+  const skillMatchScore = targetSkills.length ? Math.round((matchedTargetSkills.length / targetSkills.length) * 100) : benchmarkCoverage;
   const structureScore = calculateStructureScore(resume);
-  const score = Math.max(28, Math.min(98, Math.round(keywordCoverage * 0.42 + benchmarkCoverage * 0.33 + structureScore * 0.25)));
+  const score = Math.max(28, Math.min(98, Math.round(keywordCoverage * 0.34 + benchmarkCoverage * 0.22 + skillMatchScore * 0.24 + structureScore * 0.2)));
 
-  const missingSkills = [...new Set([...missingJobKeywords, ...missingBenchmarkKeywords])].slice(0, 12);
+  const missingSkills = [...new Set([...missingTargetSkills, ...missingJobKeywords, ...missingBenchmarkKeywords])].slice(0, 12);
   const matchedKeywords = [...new Set([...matchedJobKeywords, ...matchedBenchmarkKeywords])].slice(0, 18);
   const suggestions = [
     keywordCoverage < 70 ? `Add more ${benchmark.name.toLowerCase()} keywords from the target job into your summary and recent experience.` : null,
+    skillMatchScore < 70 ? `Add evidence for target-role skills such as ${missingTargetSkills.slice(0, 4).join(', ')}.` : null,
     benchmarkCoverage < 65 ? `Strengthen benchmark skills such as ${missingBenchmarkKeywords.slice(0, 4).join(', ')}.` : null,
     (resume.experience || []).some((item) => !(item.highlights || []).some((bullet) => /\d/.test(bullet)))
       ? 'Add measurable impact metrics to your experience bullets.'
@@ -132,9 +164,13 @@ export const analyzeResumeAgainstJD = (resume, jobDescription = '') => {
 
   return {
     score,
+    targetRole: targetRole || benchmark.name,
     keywordCoverage,
     benchmarkCoverage,
+    skillMatchScore,
     benchmarkRole: benchmark.name,
+    targetSkills,
+    matchedSkills: matchedTargetSkills,
     matchedKeywords,
     missingSkills,
     suggestions,

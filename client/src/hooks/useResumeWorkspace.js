@@ -6,11 +6,11 @@ export const useResumeWorkspace = (token, preferredResumeId) => {
   const [selectedResumeId, setSelectedResumeId] = useState(preferredResumeId || '');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const refreshResumes = () => {
     if (!token) return;
 
     setLoading(true);
-    api
+    return api
       .get('/resumes', withAuth(token))
       .then((response) => {
         const resumeList = response.data.resumes || [];
@@ -23,6 +23,10 @@ export const useResumeWorkspace = (token, preferredResumeId) => {
         }
       })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    refreshResumes();
   }, [token, preferredResumeId]);
 
   const selectedResume =
@@ -33,7 +37,8 @@ export const useResumeWorkspace = (token, preferredResumeId) => {
     selectedResume,
     selectedResumeId,
     setSelectedResumeId,
-    loading
+    loading,
+    refreshResumes,
+    setResumes
   };
 };
-

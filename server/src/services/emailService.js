@@ -31,14 +31,21 @@ export const sendResumeEmail = async ({ to, name, pdfBuffer, resumeTitle }) => {
     return { skipped: true, reason: 'no_valid_recipient' };
   }
 
+  const safeResumeTitle = resumeTitle?.trim() || 'resume';
+  const hasAttachment = Buffer.isBuffer(pdfBuffer) && pdfBuffer.length > 0;
+
+  if (!hasAttachment) {
+    return { skipped: true, reason: 'pdf_attachment_required' };
+  }
+
   const info = await transporter.sendMail({
     from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
     to: recipients.join(', '),
-    subject: `Your resume is ready: ${resumeTitle}`,
+    subject: `Your resume is ready: ${safeResumeTitle}`,
     html: `<p>Hi ${name},</p><p>Your latest resume PDF is attached and ready to use.</p>`,
     attachments: [
       {
-        filename: `${resumeTitle.replace(/\s+/g, '-').toLowerCase()}.pdf`,
+        filename: `${safeResumeTitle.replace(/\s+/g, '-').toLowerCase()}.pdf`,
         content: pdfBuffer
       }
     ]
@@ -46,6 +53,7 @@ export const sendResumeEmail = async ({ to, name, pdfBuffer, resumeTitle }) => {
 
   return {
     skipped: false,
+    attachedPdf: true,
     accepted: info.accepted,
     rejected: info.rejected,
     response: info.response
