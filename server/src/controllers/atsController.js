@@ -1,4 +1,4 @@
-import { generateAISuggestions } from '../services/aiService.js';
+import { generateAISuggestions, getJobSkills } from '../services/aiService.js';
 import { analyzeResumeAgainstJD } from '../services/atsService.js';
 
 export const analyzeATS = async (req, res) => {
@@ -10,7 +10,17 @@ export const analyzeATS = async (req, res) => {
     throw error;
   }
 
-  const analysis = analyzeResumeAgainstJD(resume, jobDescription, targetRole);
+  if (!targetRole) {
+    const error = new Error('Target role is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Get job skills using AI
+  const jobSkills = await getJobSkills({ jobRole: targetRole, jobDescription });
+
+  // Analyze resume against the job skills
+  const analysis = analyzeResumeAgainstJD(resume, jobDescription, targetRole, jobSkills);
   const aiSuggestions = await generateAISuggestions({ resume, jobDescription, atsAnalysis: analysis });
 
   res.json({

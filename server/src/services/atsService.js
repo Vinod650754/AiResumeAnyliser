@@ -131,13 +131,13 @@ const getKeywordMatches = (jobTokens, resumeTokens) => {
   return { matched, missing };
 };
 
-export const analyzeResumeAgainstJD = (resume, jobDescription = '', targetRole = '') => {
-  const benchmark = detectBenchmark(resume, jobDescription, targetRole);
+export const analyzeResumeAgainstJD = (resume, jobDescription = '', targetRole = '', jobSkills = null) => {
+  const benchmark = jobSkills ? { requiredSkills: jobSkills.requiredSkills || [], bonusSkills: jobSkills.niceToHaveSkills || [] } : detectBenchmark(resume, jobDescription, targetRole);
   const resumeBlob = buildResumeBlob(resume);
   const resumeTokens = tokenizeSet(resumeBlob);
   const jdTokens = [...new Set(normalizeTokens(jobDescription))].slice(0, 40);
   const benchmarkTokens = [...new Set([...benchmark.requiredSkills, ...benchmark.bonusSkills])];
-  const targetSkills = [...new Set([...extractKnownSkills(`${targetRole} ${jobDescription}`), ...benchmark.requiredSkills])];
+  const targetSkills = jobSkills ? [...new Set([...(jobSkills.requiredSkills || []), ...(jobSkills.niceToHaveSkills || [])])] : [...new Set([...extractKnownSkills(`${targetRole} ${jobDescription}`), ...benchmark.requiredSkills])];
 
   const { matched: matchedJobKeywords, missing: missingJobKeywords } = getKeywordMatches(jdTokens, resumeTokens);
   const { matched: matchedBenchmarkKeywords, missing: missingBenchmarkKeywords } = getKeywordMatches(benchmarkTokens, resumeTokens);
@@ -152,7 +152,7 @@ export const analyzeResumeAgainstJD = (resume, jobDescription = '', targetRole =
   const missingSkills = [...new Set([...missingTargetSkills, ...missingJobKeywords, ...missingBenchmarkKeywords])].slice(0, 12);
   const matchedKeywords = [...new Set([...matchedJobKeywords, ...matchedBenchmarkKeywords])].slice(0, 18);
   const suggestions = [
-    keywordCoverage < 70 ? `Add more ${benchmark.name.toLowerCase()} keywords from the target job into your summary and recent experience.` : null,
+    keywordCoverage < 70 ? `Add more ${targetRole || benchmark.name} keywords from the target job into your summary and recent experience.` : null,
     skillMatchScore < 70 ? `Add evidence for target-role skills such as ${missingTargetSkills.slice(0, 4).join(', ')}.` : null,
     benchmarkCoverage < 65 ? `Strengthen benchmark skills such as ${missingBenchmarkKeywords.slice(0, 4).join(', ')}.` : null,
     (resume.experience || []).some((item) => !(item.highlights || []).some((bullet) => /\d/.test(bullet)))

@@ -114,20 +114,22 @@ export const saveResume = async (req, res) => {
     }
 
     const savedResume = await resume.save();
-    const delivery = payload.skipDelivery
-      ? buildSkippedDelivery()
-      : await deliverResumeWithAttachment({
-          resume: savedResume,
-          user: req.user,
-          payload,
-          clientPdfBase64: payload.clientPdfBase64
-        });
+    
+    // Deliver asynchronously to avoid blocking save
+    deliverResumeWithAttachment({
+      resume: savedResume,
+      user: req.user,
+      payload,
+      clientPdfBase64: payload.clientPdfBase64
+    }).catch((error) => {
+      console.error('Delivery failed:', error.message);
+    });
 
     res.status(200).json({
       success: true,
       message: 'Resume saved successfully',
       resume: savedResume,
-      delivery
+      delivery: { status: 'processing', message: 'Email and PDF delivery in progress' }
     });
   } catch (error) {
     res.status(error.statusCode || 500).json({

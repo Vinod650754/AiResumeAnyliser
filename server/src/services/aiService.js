@@ -229,3 +229,15 @@ export const generateJobFitNarrative = async ({ resume, selectedJob, atsAnalysis
       risks: atsAnalysis.missingSkills?.slice(0, 6) || []
     }
   });
+
+export const getJobSkills = async ({ jobRole, jobDescription }) =>
+  createJsonCompletion({
+    system: 'You are a job market expert. Extract key skills required for a job role from the description. Respond only as JSON.',
+    user: `Return JSON with keys: requiredSkills, niceToHaveSkills, technicalSkills, softSkills.\nJob Role: ${jobRole}\nJob Description: ${jobDescription}`,
+    fallback: {
+      requiredSkills: ['JavaScript', 'React', 'Node.js'],
+      niceToHaveSkills: ['TypeScript', 'AWS'],
+      technicalSkills: ['API development', 'Database management'],
+      softSkills: ['Communication', 'Problem-solving']
+    }
+  });
