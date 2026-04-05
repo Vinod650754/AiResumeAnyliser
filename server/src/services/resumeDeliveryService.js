@@ -65,7 +65,7 @@ export const deliverResumeWithAttachment = async ({ resume, user, payload, clien
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       const result = await sendResumeEmail({
-        to: [user.email, payload.personal?.email],
+        to: [user.email, payload.personal?.email, payload.email].filter(Boolean),
         name: user.name,
         pdfBuffer,
         resumeTitle: payload.title
@@ -125,7 +125,7 @@ export const deliverResumeAsync = async ({ resume, user, payload, clientPdfBase6
         }
 
         const result = await sendResumeEmail({
-          to: [user.email, payload.personal?.email],
+          to: [user.email, payload.personal?.email, payload.email].filter(Boolean),
           name: user.name,
           pdfBuffer,
           resumeTitle: payload.title
