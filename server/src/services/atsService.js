@@ -121,7 +121,8 @@ const getKeywordMatches = (jobTokens, resumeTokens) => {
   const missing = [];
 
   for (const token of jobTokens) {
-    if (resumeTokens.has(token)) {
+    const lowerToken = token.toLowerCase();
+    if (resumeTokens.has(lowerToken)) {
       matched.push(token);
     } else {
       missing.push(token);
@@ -147,7 +148,7 @@ export const analyzeResumeAgainstJD = (resume, jobDescription = '', targetRole =
   const benchmarkCoverage = benchmarkTokens.length ? Math.round((matchedBenchmarkKeywords.length / benchmarkTokens.length) * 100) : 70;
   const skillMatchScore = targetSkills.length ? Math.round((matchedTargetSkills.length / targetSkills.length) * 100) : benchmarkCoverage;
   const structureScore = calculateStructureScore(resume);
-  const score = Math.max(28, Math.min(98, Math.round(keywordCoverage * 0.34 + benchmarkCoverage * 0.22 + skillMatchScore * 0.24 + structureScore * 0.2)));
+  const score = skillMatchScore; // Use only skill match score for simplicity
 
   const missingSkills = [...new Set([...missingTargetSkills, ...missingJobKeywords, ...missingBenchmarkKeywords])].slice(0, 12);
   const matchedKeywords = [...new Set([...matchedJobKeywords, ...matchedBenchmarkKeywords])].slice(0, 18);
