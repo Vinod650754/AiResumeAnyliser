@@ -42,12 +42,16 @@ const STOP_WORDS = new Set([
   'role', 'team', 'work', 'must', 'able', 'good', 'need', 'using', 'used', 'high', 'strong', 'build', 'built', 'looking', 'engineer', 'developer'
 ]);
 
-const normalizeTokens = (text = '') =>
-  text
+const normalizeTokens = (text = '') => {
+  const tokens = text
     .toLowerCase()
     .replace(/[^a-z0-9+#./\s-]/g, ' ')
     .split(/\s+/)
     .filter((token) => token.length > 1 && !STOP_WORDS.has(token));
+  
+  // Remove duplicates while preserving order
+  return [...new Set(tokens)];
+};
 
 const tokenizeSet = (text = '') => new Set(normalizeTokens(text));
 
@@ -119,12 +123,30 @@ const calculateStructureScore = (resume) => {
 const getKeywordMatches = (jobTokens, resumeTokens) => {
   const matched = [];
   const missing = [];
+  const resumeTokensArray = Array.from(resumeTokens);
 
   for (const token of jobTokens) {
     const lowerToken = token.toLowerCase();
+    
+    // Exact match (case-insensitive)
     if (resumeTokens.has(lowerToken)) {
       matched.push(token);
-    } else {
+      continue;
+    }
+    
+    // Partial match - check if token contains or is contained in resume tokens
+    let foundMatch = false;
+    for (const resumeToken of resumeTokensArray) {
+      const lowerResumeToken = resumeToken.toLowerCase();
+      // Check for substring match or similar tokens
+      if (lowerToken.includes(lowerResumeToken) || lowerResumeToken.includes(lowerToken)) {
+        matched.push(token);
+        foundMatch = true;
+        break;
+      }
+    }
+    
+    if (!foundMatch) {
       missing.push(token);
     }
   }

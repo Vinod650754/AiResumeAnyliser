@@ -8,17 +8,32 @@ const getTransporter = () => {
 
   return nodemailer.createTransport({
     service: 'gmail',
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000,
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_APP_PASSWORD
-    }
+    },
+    connectionTimeout: 60000,
+    socketTimeout: 60000,
+    greetingTimeout: 30000,
+    pool: {
+      maxConnections: 1,
+      maxMessages: 100,
+      rateDelta: 100,
+      rateLimit: 3
+    },
+    tls: {
+      rejectUnauthorized: false,
+      minVersion: 'TLSv1.2'
+    },
+    logger: true,
+    debug: true
   });
 };
 
-const sendEmailWithRetry = async (transporter, mailOptions, maxRetries = 3, delay = 2000) => {
+const sendEmailWithRetry = async (transporter, mailOptions, maxRetries = 5, delay = 3000) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Attempting email send ${attempt}/${maxRetries} to:`, mailOptions.to);
@@ -30,11 +45,13 @@ const sendEmailWithRetry = async (transporter, mailOptions, maxRetries = 3, dela
       });
       return { success: true, info };
     } catch (error) {
-      console.log(`Email send attempt ${attempt}/${maxRetries} failed:`, error.message);
+      console.error(`Email send attempt ${attempt}/${maxRetries} failed:`, error.message, error.code);
       if (attempt === maxRetries) {
         throw error;
       }
-      await new Promise(resolve => setTimeout(resolve, delay));
+      const backoffDelay = delay * attempt; // Exponential backoff
+      console.log(`Retrying in ${backoffDelay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, backoffDelay));
     }
   }
 };
