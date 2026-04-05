@@ -21,7 +21,13 @@ const getTransporter = () => {
 const sendEmailWithRetry = async (transporter, mailOptions, maxRetries = 3, delay = 2000) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      console.log(`Attempting email send ${attempt}/${maxRetries} to:`, mailOptions.to);
       const info = await transporter.sendMail(mailOptions);
+      console.log('Email sent successfully:', {
+        messageId: info.messageId,
+        accepted: info.accepted,
+        rejected: info.rejected
+      });
       return { success: true, info };
     } catch (error) {
       console.log(`Email send attempt ${attempt}/${maxRetries} failed:`, error.message);
@@ -34,17 +40,31 @@ const sendEmailWithRetry = async (transporter, mailOptions, maxRetries = 3, dela
 };
 
 export const sendResumeEmail = async ({ to, name, pdfBuffer, resumeTitle }) => {
+  console.log('Email service called with:', {
+    to: to,
+    name: name,
+    hasPdfBuffer: !!pdfBuffer,
+    pdfBufferSize: pdfBuffer?.length || 0,
+    resumeTitle: resumeTitle
+  });
+
   const transporter = getTransporter();
 
   if (!transporter) {
+    console.error('Email transporter not configured. Check EMAIL_USER and EMAIL_APP_PASSWORD env vars');
     return { skipped: true, reason: 'transporter_not_configured' };
   }
+
+  console.log('Email transporter configured successfully');
 
   const recipients = [...new Set((Array.isArray(to) ? to : [to]).filter((email) => email && validator.isEmail(email)))];
 
   if (!recipients.length) {
+    console.error('No valid recipients found');
     return { skipped: true, reason: 'no_valid_recipient' };
   }
+
+  console.log('Valid recipients:', recipients);
 
   const safeResumeTitle = resumeTitle?.trim() || 'resume';
   const hasAttachment = Buffer.isBuffer(pdfBuffer) && pdfBuffer.length > 0;

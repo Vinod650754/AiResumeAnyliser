@@ -40,6 +40,12 @@ export const analyzeATS = async (req, res) => {
   try {
     const { resume, jobDescription, targetRole } = req.body;
 
+    console.log('ATS Request received:', {
+      hasResume: !!resume,
+      jobDescriptionLength: jobDescription?.length || 0,
+      targetRole: targetRole || 'none'
+    });
+
     if (!resume) {
       return res.status(400).json({
         success: false,
@@ -68,10 +74,17 @@ export const analyzeATS = async (req, res) => {
 
     // Analyze resume against the job skills
     const analysis = analyzeResumeAgainstJD(resume, jobDescription, targetRole, jobSkills);
+    console.log('ATS Analysis result:', {
+      score: analysis.score,
+      skillMatchScore: analysis.skillMatchScore,
+      matchedSkillsCount: analysis.matchedSkills?.length || 0,
+      missingSkillsCount: analysis.missingSkills?.length || 0
+    });
     
     let aiSuggestions = {};
     try {
       aiSuggestions = await generateAISuggestions({ resume, jobDescription, atsAnalysis: analysis });
+      console.log('AI suggestions generated successfully');
     } catch (suggError) {
       console.error('Error generating AI suggestions:', suggError.message);
       aiSuggestions = {
@@ -81,7 +94,7 @@ export const analyzeATS = async (req, res) => {
       };
     }
 
-    res.json({
+    const response = {
       jobSkills: {
         extractedKeywords: targetJobSkills,
         requiredSkills: targetJobSkills,
@@ -95,7 +108,10 @@ export const analyzeATS = async (req, res) => {
         grammarNotes: [...new Set([...(analysis.grammarNotes || []), ...(aiSuggestions.grammarFixes || [])])],
         rewrittenSummary: aiSuggestions.rewrittenSummary
       }
-    });
+    };
+
+    console.log('Sending ATS response with score:', response.analysis.score);
+    res.json(response);
   } catch (error) {
     console.error('ATS Analysis Error:', error);
     res.status(500).json({
